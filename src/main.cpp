@@ -1,10 +1,12 @@
 #include <ESP8266WiFi.h>
+#include "config.h"
+
 #define LED D1
 void printWifiStatus();
 String prepareHtmlPage();
 
-char ssid[] = "Wayne Mansion";      // your network SSID (name)
-char pass[] = "Iamdefinitelynotbatman2911";   // your network password
+char ssid[] = "x x";      // your network SSID (name)
+char pass[] = "x";   // your network password
 
 WiFiServer server(80);
 
