@@ -27,7 +27,6 @@ void setup()
   Serial.println(WiFi.localIP());
 
   pinMode(LED, OUTPUT);
-  pinMode(PWM, OUTPUT);
 
   server.begin();
 
