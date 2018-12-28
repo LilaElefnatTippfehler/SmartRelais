@@ -3,8 +3,8 @@
 void printWifiStatus();
 String prepareHtmlPage();
 
-char ssid[] = "x x";      // your network SSID (name)
-char pass[] = "x";   // your network password
+char ssid[] = "Wayne Mansion";      // your network SSID (name)
+char pass[] = "Iamdefinitelynotbatman2911";   // your network password
 
 WiFiServer server(80);
 
