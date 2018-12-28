@@ -17,10 +17,14 @@ ESP8266WebServer httpServer(80);
 int PinStatus = 0;
 
 const char* host = "esp8266-webupdate";
+const char* update_path = "/firmware";
+const char* update_username = USERNAME;
+const char* update_password = PASSWORD;
 
 void setup()
 {
   Serial.begin(115200);
+  WiFi.mode(WIFI_STA);
   while(! Serial);
 
   Serial.print("Connecting to Adafruit IO");
@@ -45,17 +49,30 @@ void setup()
   server.begin();
   //Implementing OTA Updates
   MDNS.begin(host);
-  httpUpdater.setup(&httpServer);
+  httpUpdater.setup(&httpServer, update_path, update_username, update_password);
   httpServer.begin();
   MDNS.addService("http", "tcp", 80);
+  Serial.printf("HTTPUpdateServer ready! Open http://%s.local%s in your browser and login with username '%s' and password '%s'\n", host, update_path, update_username, update_password);
   //------
    printWifiStatus();
+  //Setup Succesfull------
+  digitalWrite(LED, 1);
+  delay(500);
+  digitalWrite(LED, 0);
+  delay(200);
+  digitalWrite(LED, 1);
+  delay(500);
+  digitalWrite(LED, 0);
+
+  //ESP.deepSleep(uint64_t time_us, optional RFMode mode);
+  wifi_set_sleep_type(LIGHT_SLEEP_T);
 }
 
 void loop() {
 
   io.run();
   httpServer.handleClient();
+  MDNS.update();
   // Check if a client has connected
   WiFiClient client = server.available();
   if (!client) {
@@ -115,7 +132,7 @@ void loop() {
   client.print(s);
   delay(1);
 Serial.println("Client disconnected");
-//delay(1000);
+delay(200);
 }
 
 
