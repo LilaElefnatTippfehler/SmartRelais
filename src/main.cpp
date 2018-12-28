@@ -1,4 +1,8 @@
 #include <ESP8266WiFi.h>
+#include <ESP8266mDNS.h>
+#include <ESP8266WebServer.h>
+#include <ESP8266HTTPUpdateServer.h>
+#include <ESP8266HTTPClient.h>
 #include "config.h"
 
 #define DEVICE_NAME "Nachttisch"
@@ -6,14 +10,25 @@
 void printWifiStatus();
 String prepareHtmlPage();
 void handleMessage(AdafruitIO_Data *data);
+void handleOn();
+void handleOff();
+void handleStatus();
 
-WiFiServer server(80);
+//WiFiServer server(8080);
 AdafruitIO_Feed *status = io.feed("on-slash-off");
+ESP8266HTTPUpdateServer httpUpdater;
+ESP8266WebServer httpServer(80);
 int PinStatus = 0;
+
+const char* host = "esp8266-webupdate";
+const char* update_path = "/firmware";
+const char* update_username = USERNAME;
+const char* update_password = PASSWORD;
 
 void setup()
 {
   Serial.begin(115200);
+  WiFi.mode(WIFI_STA);
   while(! Serial);
 
   Serial.print("Connecting to Adafruit IO");
@@ -35,74 +50,37 @@ void setup()
 
   pinMode(LED, OUTPUT);
   status->get();
-  server.begin();
-
+  //Implementing OTA Updates
+  MDNS.begin(host);
+  httpUpdater.setup(&httpServer, update_path, update_username, update_password);
+  httpServer.begin();
+  MDNS.addService("http", "tcp", 80);
+  Serial.printf("HTTPUpdateServer ready! Open http://%s.local%s in your browser and login with username '%s' and password '%s'\n", host, update_path, update_username, update_password);
+  //------
    printWifiStatus();
+  //Setup Succesfull------
+  digitalWrite(LED, 1);
+  delay(500);
+  digitalWrite(LED, 0);
+  delay(200);
+  digitalWrite(LED, 1);
+  delay(500);
+  digitalWrite(LED, 0);
+
+  httpServer.on("/on",handleOn);
+  httpServer.on("/off",handleOff);
+  httpServer.on("/status",handleStatus);
+  //ESP.deepSleep(uint64_t time_us, optional RFMode mode);
+  wifi_set_sleep_type(MODEM_SLEEP_T);
 }
 
 void loop() {
 
   io.run();
-  // Check if a client has connected
-  WiFiClient client = server.available();
-  if (!client) {
-    return;
-  }
+  httpServer.handleClient();
+  MDNS.update();
 
-  // Wait until the client sends some data
-  Serial.println("new client");
-  unsigned long timeout = millis() + 3000;
-  while (!client.available() && millis() < timeout) {
-    delay(1);
-  }
-  if (millis() > timeout) {
-    Serial.println("timeout");
-    client.flush();
-    client.stop();
-    return;
-  }
-
-  // Read the first line of the request
-  String req = client.readStringUntil('\r');
-  Serial.println(req);
-  client.flush();
-
-  // Match the request
-  int val;
-  if (req.indexOf("aus") != -1) {
-    val = 0;
-  } else if (req.indexOf("ein") != -1) {
-    val = 1;
-  } else if (req.indexOf("status") != -1){
-    String s = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\nRefresh: 1\r\n\r\n<!DOCTYPE HTML>\r\n<html>\r\nThe lamp is turned ";
-    if(PinStatus){
-      s += "on";
-    }else{
-      s+= "off";
-    }
-    client.print(s);
-    return;
-  } else{
-    Serial.println("invalid request");
-    client.print("HTTP/1.1 404 Not Found\r\nContent-Type: text/html\r\n\r\n<!DOCTYPE HTML>\r\n<html><body>Not found</body></html>");
-    return;
-  }
-
-  // Set GPIO2 according to the request
-  digitalWrite(LED, val);
-  PinStatus = val;
-  client.flush();
-
-  // Prepare the response
-  String s = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<!DOCTYPE HTML>\r\n<html>\r\nGPIO is now ";
-  s += (val) ? "high" : "low";
-  s += "</html>\n";
-  status->save(val);
-  // Send the response to the client
-  client.print(s);
-  delay(1);
-Serial.println("Client disconnected");
-//delay(1000);
+//delay(200);
 }
 
 
@@ -121,6 +99,43 @@ void printWifiStatus() {
   Serial.print("signal strength (RSSI):");
   Serial.print(rssi);
   Serial.println(" dBm");
+}
+
+void handleOn(){
+  httpServer.send(200, "text/plain", "Relais is turned on");
+  digitalWrite(LED, 1);
+  PinStatus = 1;
+  status->save(DEVICE_NAME+'1');
+}
+
+void handleOff(){
+  httpServer.send(200, "text/plain", "Relais is turned off");
+  digitalWrite(LED, 0);
+  PinStatus = 0;
+  status->save(DEVICE_NAME+'0');
+}
+
+void handleStatus(){
+  if(PinStatus){
+    httpServer.send(200, "text/plain", "Relais is turned on");
+  }else{
+    httpServer.send(200, "text/plain", "Relais is turned off");
+  }
+}
+
+void handleNotFound() {
+  String message = "File Not Found\n\n";
+  message += "URI: ";
+  message += httpServer.uri();
+  message += "\nMethod: ";
+  message += (httpServer.method() == HTTP_GET) ? "GET" : "POST";
+  message += "\nArguments: ";
+  message += httpServer.args();
+  message += "\n";
+  for (uint8_t i = 0; i < httpServer.args(); i++) {
+    message += " " + httpServer.argName(i) + ": " + httpServer.arg(i) + "\n";
+  }
+  httpServer.send(404, "text/plain", message);
 }
 
 String prepareHtmlPage()

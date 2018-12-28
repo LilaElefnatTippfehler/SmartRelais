@@ -21,6 +21,10 @@
 AdafruitIO_WiFi io(IO_USERNAME, IO_KEY, WIFI_SSID, WIFI_PASS);
 
 
+//***************************SECURE OTA**************************************
+#define USERNAME "YOUR_USERNAME"
+#definde PASSWORD "YOUR_PASSWORD"
+
 /******************************* FONA **************************************/
 
 // the AdafruitIO_FONA client will work with the following boards:
