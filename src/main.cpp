@@ -3,12 +3,12 @@
 #include <ESP8266WebServer.h>
 #include <ESP8266HTTPUpdateServer.h>
 #include <ESP8266HTTPClient.h>
+#include <AdafruitIO.h>
 #include "config.h"
 
 #define DEVICE_NAME "Nachttisch"
 #define LED D1
 void printWifiStatus();
-String prepareHtmlPage();
 void handleMessage(AdafruitIO_Data *data);
 void handleOn();
 void handleOff();
@@ -58,6 +58,13 @@ void setup()
   Serial.printf("HTTPUpdateServer ready! Open http://%s.local%s in your browser and login with username '%s' and password '%s'\n", host, update_path, update_username, update_password);
   //------
    printWifiStatus();
+
+  httpServer.on("/on",handleOn);
+  httpServer.on("/off",handleOff);
+  httpServer.on("/status",handleStatus);
+  //ESP.deepSleep(uint64_t time_us, optional RFMode mode);
+  wifi_set_sleep_type(MODEM_SLEEP_T);
+
   //Setup Succesfull------
   digitalWrite(LED, 1);
   delay(500);
@@ -66,12 +73,6 @@ void setup()
   digitalWrite(LED, 1);
   delay(500);
   digitalWrite(LED, 0);
-
-  httpServer.on("/on",handleOn);
-  httpServer.on("/off",handleOff);
-  httpServer.on("/status",handleStatus);
-  //ESP.deepSleep(uint64_t time_us, optional RFMode mode);
-  wifi_set_sleep_type(MODEM_SLEEP_T);
 }
 
 void loop() {
@@ -80,7 +81,7 @@ void loop() {
   httpServer.handleClient();
   MDNS.update();
 
-//delay(200);
+delay(300);
 }
 
 
@@ -138,21 +139,7 @@ void handleNotFound() {
   httpServer.send(404, "text/plain", message);
 }
 
-String prepareHtmlPage()
-{
-  String htmlPage =
-     String("HTTP/1.1 200 OK\r\n") +
-            "Content-Type: text/html\r\n" +
-            "Connection: close\r\n" +  // the connection will be closed after completion of the response
-            "Refresh: 5\r\n" +  // refresh the page automatically every 5 sec
-            "\r\n" +
-            "<!DOCTYPE HTML>" +
-            "<html>" +
-            "Analog input:  " + String(analogRead(A0)) +
-            "</html>" +
-            "\r\n";
-  return htmlPage;
-}
+
 
 void handleMessage(AdafruitIO_Data *data){
   Serial.print("received <- ");
