@@ -1,4 +1,7 @@
 #include <ESP8266WiFi.h>
+#include <ESP8266mDNS.h>
+#include <ESP8266WebServer.h>
+#include <ESP8266HTTPUpdateServer.h>
 #include "config.h"
 
 #define DEVICE_NAME "Nachttisch"
@@ -7,9 +10,13 @@ void printWifiStatus();
 String prepareHtmlPage();
 void handleMessage(AdafruitIO_Data *data);
 
-WiFiServer server(80);
+WiFiServer server(8080);
 AdafruitIO_Feed *status = io.feed("on-slash-off");
+ESP8266HTTPUpdateServer httpUpdater;
+ESP8266WebServer httpServer(80);
 int PinStatus = 0;
+
+const char* host = "esp8266-webupdate";
 
 void setup()
 {
@@ -36,13 +43,19 @@ void setup()
   pinMode(LED, OUTPUT);
   status->get();
   server.begin();
-
+  //Implementing OTA Updates
+  MDNS.begin(host);
+  httpUpdater.setup(&httpServer);
+  httpServer.begin();
+  MDNS.addService("http", "tcp", 80);
+  //------
    printWifiStatus();
 }
 
 void loop() {
 
   io.run();
+  httpServer.handleClient();
   // Check if a client has connected
   WiFiClient client = server.available();
   if (!client) {
