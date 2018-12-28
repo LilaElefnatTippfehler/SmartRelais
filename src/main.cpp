@@ -1,35 +1,40 @@
 #include <ESP8266WiFi.h>
 #include "config.h"
 
+#define DEVICE_NAME "Nachttisch"
 #define LED D1
 void printWifiStatus();
 String prepareHtmlPage();
-
-char ssid[] = "x x";      // your network SSID (name)
-char pass[] = "x";   // your network password
+void handleMessage(AdafruitIO_Data *data);
 
 WiFiServer server(80);
+AdafruitIO_Feed *status = io.feed("on-slash-off");
+int PinStatus = 0;
 
 void setup()
 {
   Serial.begin(115200);
-  Serial.println();
+  while(! Serial);
 
-  WiFi.begin(ssid, pass);
+  Serial.print("Connecting to Adafruit IO");
 
-  Serial.print("Connecting");
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    delay(500);
+  // connect to io.adafruit.com
+  io.connect();
+  status->onMessage(handleMessage);
+  // wait for a connection
+  while(io.status() < AIO_CONNECTED) {
     Serial.print(".");
+    delay(500);
   }
-  Serial.println();
 
+  // we are connected
+  Serial.println();
+  Serial.println(io.statusText());
   Serial.print("Connected, IP address: ");
   Serial.println(WiFi.localIP());
 
   pinMode(LED, OUTPUT);
-
+  status->get();
   server.begin();
 
    printWifiStatus();
@@ -37,6 +42,7 @@ void setup()
 
 void loop() {
 
+  io.run();
   // Check if a client has connected
   WiFiClient client = server.available();
   if (!client) {
@@ -63,11 +69,20 @@ void loop() {
 
   // Match the request
   int val;
-  if (req.indexOf("/gpio/0") != -1) {
+  if (req.indexOf("aus") != -1) {
     val = 0;
-  } else if (req.indexOf("/gpio/1") != -1) {
+  } else if (req.indexOf("ein") != -1) {
     val = 1;
-  } else {
+  } else if (req.indexOf("status") != -1){
+    String s = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\nRefresh: 1\r\n\r\n<!DOCTYPE HTML>\r\n<html>\r\nThe lamp is turned ";
+    if(PinStatus){
+      s += "on";
+    }else{
+      s+= "off";
+    }
+    client.print(s);
+    return;
+  } else{
     Serial.println("invalid request");
     client.print("HTTP/1.1 404 Not Found\r\nContent-Type: text/html\r\n\r\n<!DOCTYPE HTML>\r\n<html><body>Not found</body></html>");
     return;
@@ -75,17 +90,19 @@ void loop() {
 
   // Set GPIO2 according to the request
   digitalWrite(LED, val);
+  PinStatus = val;
   client.flush();
 
   // Prepare the response
   String s = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<!DOCTYPE HTML>\r\n<html>\r\nGPIO is now ";
   s += (val) ? "high" : "low";
   s += "</html>\n";
-
+  status->save(val);
   // Send the response to the client
   client.print(s);
   delay(1);
 Serial.println("Client disconnected");
+//delay(1000);
 }
 
 
@@ -120,4 +137,22 @@ String prepareHtmlPage()
             "</html>" +
             "\r\n";
   return htmlPage;
+}
+
+void handleMessage(AdafruitIO_Data *data){
+  Serial.print("received <- ");
+  Serial.println(data->value());
+  String data_rec = data->toString();
+  String nameOn = DEVICE_NAME;
+  String nameOff = DEVICE_NAME;
+  if(!data_rec.compareTo(nameOff+ '0')){
+    digitalWrite(LED, 0);
+    PinStatus = 0;
+    Serial.println("turning Off");
+  }
+  if(!data_rec.compareTo(nameOn+ '1')){
+    digitalWrite(LED, 1);
+    PinStatus = 1;
+    Serial.println("turning On");
+  }
 }
