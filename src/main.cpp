@@ -157,4 +157,14 @@ void handleMessage(AdafruitIO_Data *data){
     PinStatus = 1;
     Serial.println("turning On");
   }
+  if(!data_rec.compareTo("ein")){
+    digitalWrite(LED, 1);
+    PinStatus = 1;
+    Serial.println("turning On");
+  }
+  if(!data_rec.compareTo("aus")){
+    digitalWrite(LED, 0);
+    PinStatus = 0;
+    Serial.println("turning On");
+  }
 }
