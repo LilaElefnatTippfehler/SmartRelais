@@ -27,7 +27,7 @@ int PinStatus = 0;
 unsigned long onTime = 0;
 unsigned long lastCheck = 0;
 
-const char* host = "esp8266-webupdate";
+const char* host = "esp8266-SmartRelais";
 const char* update_path = "/firmware";
 const char* update_username = USERNAME;
 const char* update_password = PASSWORD;
