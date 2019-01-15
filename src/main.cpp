@@ -3,13 +3,12 @@
 #include <ESP8266WebServer.h>
 #include <ESP8266HTTPUpdateServer.h>
 #include <ESP8266HTTPClient.h>
-#include <AdafruitIO.h>
+#include <PubSubClient.h>
 #include "config.h"
 
 #define DEVICE_NAME "Nachttisch"
 #define LED D1
 void printWifiStatus();
-void handleMessage(AdafruitIO_Data *data);
 void handleOn();
 void handleOff();
 void handleStatus();
@@ -18,9 +17,12 @@ void handleUpTime();
 String generateHTML();
 void updateOnTime();
 void changeState(int i);
+void callback(char* topic, byte* payload, unsigned int length);
+void reconnect();
 
 //WiFiServer server(8080);
-AdafruitIO_Feed *status = io.feed("on-slash-off");
+WiFiClient espClient;
+PubSubClient client(MQTT_IP,MQTT_PORT,callback,espClient);
 ESP8266HTTPUpdateServer httpUpdater;
 ESP8266WebServer httpServer(80);
 int PinStatus = 0;
@@ -36,27 +38,17 @@ void setup()
 {
         Serial.begin(115200);
         WiFi.mode(WIFI_STA);
+        WiFi.begin(WIFI_SSID,WIFI_PASS);
+        while (WiFi.status() != WL_CONNECTED) {
+                delay(500);
+                Serial.print(".");
+        }
         while(!Serial);
 
-        Serial.print("Connecting to Adafruit IO");
-
-        // connect to io.adafruit.com
-        io.connect();
-        status->onMessage(handleMessage);
-        // wait for a connection
-        while(io.status() < AIO_CONNECTED) {
-                Serial.print(".");
-                delay(500);
-        }
-
-        // we are connected
-        Serial.println();
-        Serial.println(io.statusText());
         Serial.print("Connected, IP address: ");
         Serial.println(WiFi.localIP());
 
         pinMode(LED, OUTPUT);
-        status->get();
         //Implementing OTA Updates
         MDNS.begin(host);
         httpUpdater.setup(&httpServer, update_path, update_username, update_password);
@@ -86,7 +78,10 @@ void setup()
 
 void loop() {
 
-        io.run();
+        if (!client.connected()) {
+                reconnect();
+        }
+        client.loop();
         httpServer.handleClient();
         MDNS.update();
 
@@ -114,13 +109,17 @@ void printWifiStatus() {
 void handleOn(){
         httpServer.send(200, "text/plain", "Relais is turned on");
         changeState(1);
-        status->save(DEVICE_NAME+'1');
+        char s[50];
+        sprintf(s,"%s1",DEVICE_NAME);
+        client.publish("/lampen",s);
 }
 
 void handleOff(){
         httpServer.send(200, "text/plain", "Relais is turned off");
         changeState(0);
-        status->save(DEVICE_NAME+'0');
+        char s[50];
+        sprintf(s,"%s0",DEVICE_NAME);
+        client.publish("/lampen",s);
 }
 
 void handleStatus(){
@@ -181,10 +180,12 @@ void handleUpTime(){
 
 
 
-void handleMessage(AdafruitIO_Data *data){
+void callback(char* topic, byte* payload, unsigned int length){
         Serial.print("received <- ");
-        Serial.println(data->value());
-        String data_rec = data->toString();
+        char buffer[100];
+        snprintf(buffer,length+1,"%s",payload);
+        Serial.println(buffer);
+        String data_rec = String(buffer);
         String nameOn = DEVICE_NAME;
         String nameOff = DEVICE_NAME;
         if(!data_rec.compareTo(nameOff+ '0')) {
@@ -251,4 +252,27 @@ body { background-color: #cccccc; font-family: Arial, Helvetica, Sans-Serif; Col
 </form>\
 </body>\
 </html>";
+}
+
+void reconnect() {
+        // Loop until we're reconnected
+        while (!client.connected()) {
+                Serial.print("Attempting MQTT connection...");
+                // Create a random client ID
+                String clientId = "ESP8266Client-";
+                clientId += DEVICE_NAME;
+                // Attempt to connect
+                if (client.connect(clientId.c_str(),MQTT_USR,MQTT_PW)) {
+                        Serial.print("connected as ");
+                        Serial.print(clientId.c_str()), Serial.println("");
+                        client.subscribe("/lampen");
+
+                } else {
+                        Serial.print("failed, rc=");
+                        Serial.print(client.state());
+                        Serial.println(" try again in 5 seconds");
+                        // Wait 5 seconds before retrying
+                        delay(5000);
+                }
+        }
 }
