@@ -195,11 +195,11 @@ void handleMessage(AdafruitIO_Data *data){
                 changeState(1);
                 Serial.println("turning On");
         }
-        if(!data_rec.compareTo("ein")) {
+        if(!data_rec.compareTo("ein") || !data_rec.compareTo("an")) {
                 changeState(1);
                 Serial.println("turning On");
         }
-        if(!data_rec.compareTo("aus")) {
+        if(!data_rec.compareTo("aus") || !data_rec.compareTo("ab")) {
                 changeState(0);
                 Serial.println("turning off");
         }
