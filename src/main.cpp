@@ -6,7 +6,7 @@
 #include <PubSubClient.h>
 #include "config.h"
 
-#define DEVICE_NAME "Nachttisch"
+
 #define LED D1
 void printWifiStatus();
 void handleOn();
@@ -109,17 +109,19 @@ void printWifiStatus() {
 void handleOn(){
         httpServer.send(200, "text/plain", "Relais is turned on");
         changeState(1);
-        char s[50];
-        sprintf(s,"%s1",DEVICE_NAME);
-        client.publish("/lampen",s);
+        char data[] = {'o','n'};
+        char topic[50];
+        sprintf(topic,"/lampen/%s",DEVICE_NAME);
+        client.publish(topic,data);
 }
 
 void handleOff(){
         httpServer.send(200, "text/plain", "Relais is turned off");
         changeState(0);
-        char s[50];
-        sprintf(s,"%s0",DEVICE_NAME);
-        client.publish("/lampen",s);
+        char data[] = {'o','f','f'};
+        char topic[50];
+        sprintf(topic,"/lampen/%s",DEVICE_NAME);
+        client.publish(topic,data);
 }
 
 void handleStatus(){
@@ -265,7 +267,7 @@ void reconnect() {
                 if (client.connect(clientId.c_str(),MQTT_USR,MQTT_PW)) {
                         Serial.print("connected as ");
                         Serial.print(clientId.c_str()), Serial.println("");
-                        client.subscribe("/lampen");
+                        client.subscribe("/lampen/ada");
 
                 } else {
                         Serial.print("failed, rc=");
