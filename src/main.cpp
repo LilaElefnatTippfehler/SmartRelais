@@ -6,7 +6,7 @@
 #include <PubSubClient.h>
 #include "config.h"
 
-#define DEVICE_NAME "Nachttisch"
+
 #define LED D1
 void printWifiStatus();
 void handleOn();
